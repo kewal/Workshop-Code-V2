@@ -860,7 +860,83 @@ def agent_bot_with_more_tools():
 
 #------------final exercise of the day ----------------------------------------------------------------------------------------------#
 def prototype_application():
-	#insert the code
+	#Template 2 - Chatbot with GenAI API call
+def chat_completion_stream(prompt_design, prompt):
+	openai.api_key = return_api_key()
+	MODEL = "gpt-3.5-turbo"
+	response = client.chat.completions.create(
+		model=MODEL,
+		messages=[
+			{"role": "system", "content": prompt_design},
+			{"role": "user", "content": prompt},
+		],
+		temperature=0,  # temperature
+		stream=True,  # stream option
+	)
+	return response
+
+def memory_variables():
+	if "memory_variables" not in st.session_state:
+		st.session_state.memory_variables = {}
+		st.session_state.memory_variables = ConversationBufferWindowMemory(k=3)
+	memory = st.session_state.memory_variables.load_memory_variables({})
+	return memory['history']
+
+def rag_results(prompt):
+	if st.session_state.vs:
+		docs = st.session_state.vs.similarity_search(prompt)
+		resource = docs[0].page_content
+		source = docs[0].metadata
+		results = "\n\nResource from knowledge base " + resource + "\n\n Source: " + source['source']
+		return results
+	else:
+		return "No results found"
+
+def template2_ragbot():
+	# Initialize chat history
+	if "chat_msg" not in st.session_state:
+		st.session_state.chat_msg = []
+
+	st.title("Prototype Chatbot")
+	left_col, right_col = st.columns(2)
+
+	with left_col:
+		# Showing Chat history
+		for message in st.session_state.chat_msg:
+			with st.chat_message(message["role"]):
+				st.markdown(message["content"])
+		#include memory variables
+		memory = memory_variables()
+		memory_context = "\n\n Previous conversation" + memory
+	
+	with right_col:
+		st.write("You can use this space with session_state to manipulate the chatbot response or provide input into the chatbot.")
+
+	try:
+		#
+		if prompt := st.chat_input("What is up?"):
+			# set user prompt in chat history
+			st.session_state.chat_msg.append({"role": "user", "content": prompt})
+			with st.chat_message("user"):
+				st.markdown(prompt)
+
+			with st.chat_message("assistant"):
+				message_placeholder = st.empty()
+				full_response = ""
+				# Call rag_results and pass the prompt variable into the function
+				rag = rag_results(prompt)
+				# streaming function
+				for response in chat_completion_stream("You are a helpful assistant" + memory_context + rag, prompt):
+					full_response += (response.choices[0].delta.content or "")
+					message_placeholder.markdown(full_response + "▌")
+				message_placeholder.markdown(full_response)
+				st.session_state.memory_variables.save_context({"input": prompt}, {"output": full_response})	
+			st.session_state.chat_msg.append(
+				{"role": "assistant", "content": full_response}
+			)
+
+	except Exception as e:
+		st.error(e)
 	st.write("Prototype Application")
 	pass
 
